@@ -2,80 +2,71 @@ import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 import pandas as pd
+from utils import *
 import glob
 import wfdb
 import os
+
+ANNOTATIONS_COL_NAME = 'annotations'
 
 '''
 # MIT-BIH Arrhythmia DB Exploration
 '''
 
 record_ids = [os.path.basename(file)[:-4] for file in glob.glob('data/*.dat')]
-record_ids.sort()
-record_id = st.selectbox('Select a record id ', record_ids)
 
-if record_id:
+if len(record_ids) == 0:
+    st.write('Warning ! No data could be found under the ./data/ directory.',
+             '*\*.dat*, *\*.hea*, *\*.atr* files and such should be placed ',
+             'immediately under the ./data/ directory')
+else:
+    record_ids.sort()
+    record_id = st.selectbox('Select a record id ', record_ids)
     record = wfdb.rdrecord('data/{}'.format(record_id))
     annotation = wfdb.rdann('data/{}'.format(record_id), 'atr')
-    st.write('Number of signals : {} ({}), units : {}, frame / sec : {} ({})'
-             .format(record.n_sig,
-                     record.sig_name,
-                     record.units,
-                     record.fs,
-                     record.samps_per_frame))
-    st.write('comments : {}'.format(record.comments))
+    st.write('Signals found in this record :')
+    for idx, signal in enumerate(record.sig_name):
+        st.write('- `{}` : in {}, with a frequency of {}hz'.format(
+            signal, record.units[idx],
+            record.fs * record.samps_per_frame[idx]))
+    st.write('Comments for this record : {}'.format(record.comments))
     signals_df = pd.DataFrame(record.p_signal, columns=record.sig_name)
     annot_serie = pd.Series(annotation.symbol, index=annotation.sample,
-                            name='annotations')
+                            name=ANNOTATIONS_COL_NAME)
     full_df = pd.concat([signals_df, annot_serie], axis=1)
 
     ''' ## Annotations'''
-    st.write('Unique annotations found in this record : {}'.format(
-        annot_serie.unique()))
-    st.write('Some explanations on the annotations are available here : '
+    unique_annot = annot_serie.value_counts().index.values
+    st.write('This record contains the following annotations :')
+    for annot in unique_annot:
+        st.write('- `{}` : {}'.format(annot, annotation_definitions[annot]))
+    st.write('More explanations on the annotations are available here : '
              'https://archive.physionet.org/physiobank/annotations.shtml')
+
     # Plot count by annotation
     annot_counts_df = annot_serie \
         .value_counts() \
-        .rename_axis('annotations') \
+        .rename_axis(ANNOTATIONS_COL_NAME) \
         .reset_index(name='counts')
-    bar_fig = px.bar(annot_counts_df, x='annotations', y='counts',
+    bar_fig = px.bar(annot_counts_df, x=ANNOTATIONS_COL_NAME, y='counts',
                      title='Annotations by count')
     st.write(bar_fig)
 
     ''' ## Explore full dataset '''
-    # Display full dataframe (head 100)
-    st.write('The 100 first samples : ')
-    st.write(full_df.head(100))
-
-    # Plot signal and annotations
-    N_annotations = full_df['annotations'] == 'N'
-    A_annotations = full_df['annotations'] == 'A'
-    V_annotations = full_df['annotations'] == 'V'
-    Plus_annotations = full_df['annotations'] == '+'
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=signals_df.index.values,
-                             y=signals_df[record.sig_name[0]],
+    signal = st.selectbox('Select a signal', record.sig_name)
+    # Plot signals and annotations
+    matching_rows_by_annot = {}
+    for annot in unique_annot:
+        matching_rows_by_annot[annot] = full_df[ANNOTATIONS_COL_NAME] == annot
+    fig = go.Figure(layout=go.Layout(title=go.layout.Title(
+        text='{} signal with annotations'.format(signal))))
+    fig.add_trace(go.Scatter(x=full_df.index.values,
+                             y=full_df[signal],
                              mode='lines',
-                             name=record.sig_name[0]))
-    fig.add_trace(go.Scatter(x=full_df.index[N_annotations].values,
-                             y=signals_df[N_annotations][
-                                 record.sig_name[0]].values,
-                             mode='markers', name='N (annot)'))
-    fig.add_trace(go.Scatter(x=full_df.index[A_annotations].values,
-                             y=signals_df[A_annotations][
-                                 record.sig_name[0]].values,
-                             mode='markers', name='A (annot)'))
-    fig.add_trace(go.Scatter(x=full_df.index[V_annotations].values,
-                             y=signals_df[V_annotations][
-                                 record.sig_name[0]].values,
-                             mode='markers', name='V (annot)'))
-    fig.add_trace(go.Scatter(x=full_df.index[Plus_annotations].values,
-                             y=signals_df[Plus_annotations][
-                                 record.sig_name[0]].values,
-                             mode='markers', name='+ (annot)'))
+                             name=signal))
+    for annot, annot_matching_rows in matching_rows_by_annot.items():
+        fig.add_trace(go.Scatter(x=full_df.index[annot_matching_rows].values,
+                                 y=full_df[annot_matching_rows][signal].values,
+                                 mode='markers',
+                                 name='{} (annot)'.format(annot)))
     st.plotly_chart(fig)
-    # fig = px.line(signals_df, x=signals_df.index.values, y=record.sig_name[0],
-    #               title='Signals')
-    # st.plotly_chart(fig)
