@@ -1,5 +1,4 @@
 import plotly.graph_objects as go
-import plotly.express as px
 import streamlit as st
 import pandas as pd
 from utils import *
@@ -21,15 +20,14 @@ if len(record_ids) == 0:
              'immediately under the ./data/ directory')
 else:
     record_ids.sort()
-    record_id = st.selectbox('Select a record id ', record_ids)
-    record = wfdb.rdrecord('data/{}'.format(record_id))
-    annotation = wfdb.rdann('data/{}'.format(record_id), 'atr')
+    record_id = st.selectbox('Select a record id', record_ids)
+    record = wfdb.rdrecord(f'data/{record_id}')
+    annotation = wfdb.rdann(f'data/{record_id}', 'atr')
     st.write('Signals found in this record :')
     for idx, signal in enumerate(record.sig_name):
-        st.write('- `{}` : in {}, with a frequency of {}hz'.format(
-            signal, record.units[idx],
-            record.fs * record.samps_per_frame[idx]))
-    st.write('Comments for this record : {}'.format(record.comments))
+        st.write(f'- `{signal}` : in {record.units[idx]}, with a frequency of '
+                 f'{record.fs * record.samps_per_frame[idx]}hz')
+    st.write(f'Comments for this record : {record.comments}')
     signals_df = pd.DataFrame(record.p_signal, columns=record.sig_name)
     annot_serie = pd.Series(annotation.symbol, index=annotation.sample,
                             name=ANNOTATIONS_COL_NAME)
@@ -39,17 +37,22 @@ else:
     unique_annot = annot_serie.value_counts().index.values
     st.write('This record contains the following annotations :')
     for annot in unique_annot:
-        st.write('- `{}` : {}'.format(annot, annotation_definitions[annot]))
+        st.write(f'- `{annot}` : {annotation_definitions[annot]}')
     st.write('More explanations on the annotations are available here : '
              'https://archive.physionet.org/physiobank/annotations.shtml')
 
-    # Plot count by annotation
+    # Plot counts for each annotation
     annot_counts_df = annot_serie \
         .value_counts() \
         .rename_axis(ANNOTATIONS_COL_NAME) \
         .reset_index(name='counts')
-    bar_fig = px.bar(annot_counts_df, x=ANNOTATIONS_COL_NAME, y='counts',
-                     title='Annotations by count')
+    bar_fig = go.Figure(data=[go.Bar(x=annot_counts_df[ANNOTATIONS_COL_NAME],
+                                     y=annot_counts_df['counts'],
+                                     text=annot_counts_df['counts'],
+                                     textposition='auto'
+                                     )])
+    bar_fig.update_layout(title='Annotations by count', yaxis_title='counts',
+                          xaxis_title='annotations')
     st.write(bar_fig)
 
     ''' ## Explore full dataset '''
