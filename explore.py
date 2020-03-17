@@ -33,9 +33,14 @@ else:
                             name=ANNOTATIONS_COL_NAME)
     full_df = pd.concat([signals_df, annot_serie], axis=1)
 
-    ''' ## Annotations'''
+    ''' ## Annotations '''
+    beat_annot_count = annot_serie.isin(dict(beat_annotations)).sum()
+    non_beat_annot_count = annot_serie.isin(dict(non_beat_annotations)).sum()
     unique_annot = annot_serie.value_counts().index.values
-    st.write('This record contains the following annotations :')
+    st.write(f'This record contains `{annot_serie.size}` annotations '
+             f'among which `{beat_annot_count}` beat annotations and '
+             f'`{non_beat_annot_count}` non beat annotation(s).')
+    st.write('The annotations are the followings :')
     for annot in unique_annot:
         st.write(f'- `{annot}` : {annotation_definitions[annot]}')
     st.write('More explanations on the annotations are available here : '
