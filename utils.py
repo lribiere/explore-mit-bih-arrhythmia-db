@@ -58,7 +58,8 @@ measurement_annotation = ('=', 'Measurement annotation')
 comment_annotation = ('"', 'Comment annotation')
 link_to_external_data = ('@', 'Link to external data')
 
-non_beat_annotations = [ventricular_flutter_wave,
+non_beat_annotations = [start_of_ventricular_flutter_fibrillation,
+                        ventricular_flutter_wave,
                         end_of_ventricular_flutter_fibrillation,
                         non_conducted_p_wave_blocked_apc, waveform_onset,
                         waveform_end, peak_of_p_wave, peak_of_t_wave,
