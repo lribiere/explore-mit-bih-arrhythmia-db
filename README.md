@@ -18,3 +18,8 @@ From the terminal :
 ```
 streamlit run explore.py
 ```
+
+
+## Demo
+
+![Explorer demo](demo.gif)
